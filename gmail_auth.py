@@ -30,7 +30,8 @@ CLIENTSECRETS_LOCATION = GMAIL_CREDENTIALS_NAME
 REDIRECT_URI = 'http://localhost:8080/auth/callback'  # Adjust to your redirect URI.
 SCOPES = [
     'https://www.googleapis.com/auth/gmail.readonly',
-    'https://www.googleapis.com/auth/gmail.send'
+    'https://www.googleapis.com/auth/gmail.send',
+    'https://www.googleapis.com/auth/gmail.compose'
 ]
 
 def get_gmail_service(log_level=logging.INFO):

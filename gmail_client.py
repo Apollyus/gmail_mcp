@@ -82,10 +82,35 @@ def send_mail(subject, message_text, to, log_level=logging.INFO):
     except HttpError as error:
         log(f'Chyba při odesílání zprávy: {error}', logging.ERROR)
         return None
+
+def create_draft(subject, message_text, to, log_level=logging.INFO):
+    """Vytvoří koncept e-mailu v Gmailu.
+    Args:
+        subject: Předmět zprávy
+        message_text: Text zprávy
+        to: Emailová adresa příjemce
+    Returns:
+        ID konceptu nebo None při chybě
+    """
+    try:
+        service = get_gmail_service(log_level)
+        mime_message = MIMEText(message_text)
+        mime_message['to'] = to
+        mime_message['from'] = 'me'
+        mime_message['subject'] = subject
+        raw = base64.urlsafe_b64encode(mime_message.as_bytes()).decode()
+        body = {'message': {'raw': raw}}
+        draft = service.users().drafts().create(userId="me", body=body).execute()
+        log(f"Koncept vytvořen, ID: {draft['id']}")
+        return draft['id']
+    except HttpError as error:
+        log(f'Chyba při vytváření konceptu: {error}', logging.ERROR)
+        return None
     
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     last_messages = get_last_messages(3)
     for msg in last_messages:
         print(f"ID: {msg['id']}, Subject: {msg['subject']}")
-    send_mail("Test Subject", "This is a test message.", "moraxcz@seznam.cz")
+    #send_mail("Test Subject", "This is a test message.", "moraxcz@seznam.cz")
+    create_draft("Test Subject", "This is a test message.", "moraxcz@seznam.cz")
