@@ -1,16 +1,7 @@
 from fastmcp import FastMCP
-from gmail_client import get_last_messages, send_mail
+from gmail_client import get_last_messages, send_mail, get_message_detail
 
 mcp = FastMCP("Gmail MCP")
-
-@mcp.tool
-def greet(name: str) -> str:
-    """
-    Pozdraví uživatele zadaným jménem.
-    Vstup: name (str) – jméno osoby, kterou chcete pozdravit.
-    Výstup: Textový pozdrav ve formátu "Hello, {name}!".
-    """
-    return f"Hello, {name}!"
 
 @mcp.tool
 def list_emails(n: int = 5) -> str:
@@ -27,6 +18,27 @@ def list_emails(n: int = 5) -> str:
     for msg in messages:
         output += f"- {msg['snippet']}\n"
     return output
+
+@mcp.tool
+def get_email_detail(message_id: str) -> str:
+    """
+    Získá detail konkrétního e-mailu podle jeho ID.
+    Vstup: message_id (str) – ID zprávy.
+    Výstup: Textový obsah e-mailu včetně předmětu a těla zprávy.
+    Pokud zpráva není nalezena, vrátí 'Message not found.'.
+    """
+    msg_detail = get_message_detail(message_id)
+    if not msg_detail:
+        return "Message not found."
+    headers = msg_detail.get("payload", {}).get("headers", [])
+    subject = next((h["value"] for h in headers if h["name"] == "Subject"), "(no subject)")
+    body = ""
+    parts = msg_detail.get("payload", {}).get("parts", [])
+    for part in parts:
+        if part.get("mimeType") == "text/plain":
+            body_data = part.get("body", {}).get("data", "")
+            body += body_data.encode('utf-8').decode('utf-8')
+    return f"Subject: {subject}\n\n{body}"
 
 @mcp.tool
 def send_mail(recipient: str, subject: str, body: str) -> str:

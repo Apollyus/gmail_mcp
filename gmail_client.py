@@ -58,6 +58,22 @@ def get_last_messages(n=5, log_level=logging.INFO):
     except HttpError as error:
         log(f'Chyba při načítání zpráv: {error}', logging.ERROR)
         return []
+    
+def get_message_detail(message_id, log_level=logging.INFO):
+    """Získá detail konkrétního e-mailu podle jeho ID.
+    Args:
+        message_id: ID zprávy
+    Returns:
+        Slovník s detaily zprávy nebo None při chybě
+    """
+    try:
+        service = get_gmail_service(log_level)
+        msg_detail = service.users().messages().get(userId="me", id=message_id, format="full").execute()
+        log(f"Načteny detaily zprávy ID: {message_id}", log_level)
+        return msg_detail
+    except HttpError as error:
+        log(f'Chyba při načítání detailu zprávy: {error}', logging.ERROR)
+        return None
 
 def send_mail(subject, message_text, to, log_level=logging.INFO):
     """Odešle email přes Gmail API z účtu přihlášeného uživatele.
