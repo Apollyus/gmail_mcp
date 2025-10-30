@@ -147,6 +147,41 @@ def create_draft(subject, message_text, to, log_level=logging.INFO):
         log(f'Chyba při vytváření konceptu: {error}', logging.ERROR)
         return None
     
+def get_messages_from_sender(sender_email, n=100, after=None, before=None, log_level=logging.INFO):
+    """
+    Vrátí posledních n zpráv od konkrétního odesílatele v zadaném časovém rozmezí.
+    Args:
+        sender_email: Emailová adresa odesílatele
+        n: Počet zpráv (default 100)
+        after: Datum ve formátu 'YYYY/MM/DD' (zprávy po tomto datu)
+        before: Datum ve formátu 'YYYY/MM/DD' (zprávy před tímto datem)
+    Returns:
+        Seznam slovníků: {'id': ..., 'subject': ..., 'from': ..., 'snippet': ...}
+    """
+    try:
+        service = get_gmail_service(log_level)
+        query_parts = [f'from:{sender_email}']
+        if after:
+            query_parts.append(f"after:{after.replace('/', '')}")
+        if before:
+            query_parts.append(f"before:{before.replace('/', '')}")
+        query = " ".join(query_parts)
+        results = service.users().messages().list(userId="me", maxResults=n, q=query).execute()
+        messages = results.get("messages", [])
+        output = []
+        for msg in messages:
+            msg_detail = service.users().messages().get(userId="me", id=msg["id"]).execute()
+            headers = msg_detail.get("payload", {}).get("headers", [])
+            subject = next((h["value"] for h in headers if h["name"] == "Subject"), "(bez předmětu)")
+            sender = next((h["value"] for h in headers if h["name"] == "From"), "(neznámý odesílatel)")
+            snippet = msg_detail.get("snippet", "")[:60]
+            output.append({"id": msg["id"], "subject": subject, "from": sender, "snippet": snippet})
+        log(f"Načteno {len(output)} zpráv od {sender_email}.", log_level)
+        return output
+    except HttpError as error:
+        log(f'Chyba při načítání zpráv od odesílatele: {error}', logging.ERROR)
+        return []
+    
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     last_messages = get_last_messages(20, status="unread")
@@ -155,3 +190,5 @@ if __name__ == "__main__":
     print(last_messages)
     #send_mail("Test Subject", "This is a test message.", "moraxcz@seznam.cz")
     #create_draft("Test Subject", "This is a test message.", "moraxcz@seznam.cz")
+    messages = get_messages_from_sender("anna.vot@seznam.cz")
+    print(messages)
