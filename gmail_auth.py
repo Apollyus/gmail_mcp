@@ -7,6 +7,10 @@ from googleapiclient.discovery import build
 from googleapiclient import errors as google_api_errors
 import httplib2
 import dotenv
+from pathlib import Path
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
 
 dotenv.load_dotenv()
 
@@ -26,11 +30,28 @@ CLIENTSECRETS_LOCATION = GMAIL_CREDENTIALS_NAME
 REDIRECT_URI = 'http://localhost:8080/auth/callback'  # Adjust to your redirect URI.
 SCOPES = [
     'https://www.googleapis.com/auth/gmail.readonly',
-    'https://www.googleapis.com/auth/gmail.send',
-    'https://www.googleapis.com/auth/userinfo.email',
-    'https://www.googleapis.com/auth/userinfo.profile',
-    # Add other requested scopes.
+    'https://www.googleapis.com/auth/gmail.send'
 ]
+
+def get_gmail_service(log_level=logging.INFO):
+  """Získá autorizovanou Gmail API službu, včetně přihlášení a uložení tokenu."""
+  logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
+  creds = None
+  script_dir = Path(__file__).parent
+  client_secrets = list(script_dir.glob("client_secret_*.json"))
+  token_path = script_dir / "token.json"
+  if token_path.exists():
+    creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
+  if not creds or not creds.valid:
+    if creds and creds.expired and creds.refresh_token:
+      creds.refresh(Request())
+    else:
+      flow = InstalledAppFlow.from_client_secrets_file(str(client_secrets[0]), SCOPES)
+      creds = flow.run_local_server(port=8080)
+    with open(token_path, "w") as token:
+      token.write(creds.to_json())
+  service = build("gmail", "v1", credentials=creds)
+  return service
 
 class GetCredentialsException(Exception):
   """Error raised when an error occurred while retrieving credentials.
