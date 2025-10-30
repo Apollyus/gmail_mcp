@@ -41,18 +41,42 @@ def ListMessages(service, user, query='', log_level=logging.INFO):
                 # TODO: Redirect the user to the authorization URL.
                 raise NotImplementedError()
 
-def get_last_messages(n=5, log_level=logging.INFO):
-    """Vrátí posledních n zpráv jako seznam slovníků s ID a předmětem."""
+def get_last_messages(n=5, status="all", after=None, before=None, log_level=logging.INFO):
+    """
+    Vrátí posledních n zpráv jako seznam slovníků s ID, předmětem, odesílatelem a úryvkem.
+    Args:
+        n: Počet zpráv
+        status: 'unread', 'read', 'all'
+        after: Datum ve formátu 'YYYY/MM/DD' (zprávy po tomto datu)
+        before: Datum ve formátu 'YYYY/MM/DD' (zprávy před tímto datem)
+    Returns:
+        Seznam slovníků: {'id': ..., 'subject': ..., 'from': ..., 'snippet': ...}
+    """
     try:
         service = get_gmail_service(log_level)
-        results = service.users().messages().list(userId="me", maxResults=n).execute()
+        query_parts = []
+        if status == "unread":
+            query_parts.append("is:unread")
+        elif status == "read":
+            query_parts.append("is:read")
+        # 'all' = bez filtru
+
+        if after:
+            query_parts.append(f"after:{after.replace('/', '')}")
+        if before:
+            query_parts.append(f"before:{before.replace('/', '')}")
+
+        query = " ".join(query_parts)
+        results = service.users().messages().list(userId="me", maxResults=n, q=query).execute()
         messages = results.get("messages", [])
         output = []
         for msg in messages:
             msg_detail = service.users().messages().get(userId="me", id=msg["id"]).execute()
             headers = msg_detail.get("payload", {}).get("headers", [])
             subject = next((h["value"] for h in headers if h["name"] == "Subject"), "(bez předmětu)")
-            output.append({"id": msg["id"], "subject": subject})
+            sender = next((h["value"] for h in headers if h["name"] == "From"), "(neznámý odesílatel)")
+            snippet = msg_detail.get("snippet", "")[:60]
+            output.append({"id": msg["id"], "subject": subject, "from": sender, "snippet": snippet})
         log(f"Načteno {len(output)} zpráv.", log_level)
         return output
     except HttpError as error:
@@ -125,8 +149,9 @@ def create_draft(subject, message_text, to, log_level=logging.INFO):
     
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    last_messages = get_last_messages(3)
-    for msg in last_messages:
-        print(f"ID: {msg['id']}, Subject: {msg['subject']}")
+    last_messages = get_last_messages(20, status="unread")
+    '''for msg in last_messages:
+        print(f"ID: {msg['id']}, Subject: {msg['subject']}")'''
+    print(last_messages)
     #send_mail("Test Subject", "This is a test message.", "moraxcz@seznam.cz")
-    create_draft("Test Subject", "This is a test message.", "moraxcz@seznam.cz")
+    #create_draft("Test Subject", "This is a test message.", "moraxcz@seznam.cz")

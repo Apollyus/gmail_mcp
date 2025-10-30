@@ -4,19 +4,28 @@ from gmail_client import get_last_messages, send_mail, get_message_detail
 mcp = FastMCP("Gmail MCP")
 
 @mcp.tool
-def list_emails(n: int = 5) -> str:
+def list_emails(
+    n: int = 5,
+    status: str = "all",
+    after: str = None,
+    before: str = None
+) -> str:
     """
     Vrátí seznam posledních n e-mailů z Gmail schránky uživatele.
-    Vstup: n (int, volitelné) – počet e-mailů, které chcete zobrazit (výchozí je 5).
-    Výstup: Textový seznam e-mailů, každý na novém řádku, obsahující krátký výňatek (snippet) zprávy.
+    Vstup:
+        n (int, volitelné) – počet e-mailů (výchozí 5)
+        status (str, volitelné) – 'unread', 'read', 'all' (výchozí 'all')
+        after (str, volitelné) – datum ve formátu 'YYYY/MM/DD' (zprávy po tomto datu)
+        before (str, volitelné) – datum ve formátu 'YYYY/MM/DD' (zprávy před tímto datem)
+    Výstup: Textový seznam e-mailů, každý na novém řádku, obsahující předmět zprávy.
     Pokud nejsou nalezeny žádné zprávy, vrátí 'No messages found.'.
     """
-    messages = get_last_messages(n)
+    messages = get_last_messages(n, status=status, after=after, before=before)
     if not messages:
         return "No messages found."
     output = "Last emails:\n"
     for msg in messages:
-        output += f"- {msg['snippet']}\n"
+        output += f"- {msg['subject']}\n"
     return output
 
 @mcp.tool
