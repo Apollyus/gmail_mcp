@@ -1,5 +1,5 @@
 from fastmcp import FastMCP
-from gmail_client import get_last_messages, send_mail, get_message_detail, get_messages_from_sender
+from gmail_client import get_last_messages, send_mail, get_message_detail, get_messages_from_sender, get_messages_by_subject, get_messages_by_body
 
 mcp = FastMCP("Gmail MCP")
 
@@ -86,6 +86,56 @@ def send_mail(recipient: str, subject: str, body: str) -> str:
     """
     send_mail(subject, body, recipient)
     return f"Email sent to {recipient} with subject '{subject}'."
+
+@mcp.tool
+def list_emails_by_subject(
+    subject_text: str,
+    n: int = 5,
+    after: str = None,
+    before: str = None
+) -> str:
+    """
+    Vrátí posledních n e-mailů, jejichž předmět obsahuje zadaný text.
+    Vstup:
+        subject_text (str) – hledaný text v předmětu,
+        n (int, volitelné) – počet e-mailů (výchozí 5),
+        after (str, volitelné) – datum ve formátu 'YYYY/MM/DD' (zprávy po tomto datu),
+        before (str, volitelné) – datum ve formátu 'YYYY/MM/DD' (zprávy před tímto datem)
+    Výstup: Textový seznam e-mailů, každý na novém řádku, obsahující předmět zprávy.
+    Pokud nejsou nalezeny žádné zprávy, vrátí 'No messages found.'.
+    """
+    messages = get_messages_by_subject(subject_text, n=n, after=after, before=before)
+    if not messages:
+        return "No messages found."
+    output = f"Last emails with subject containing '{subject_text}':\n"
+    for msg in messages:
+        output += f"- {msg['subject']}\n"
+    return output
+
+@mcp.tool
+def list_emails_by_body(
+    body_text: str,
+    n: int = 5,
+    after: str = None,
+    before: str = None
+) -> str:
+    """
+    Vrátí posledních n e-mailů, jejichž tělo obsahuje zadaný text.
+    Vstup:
+        body_text (str) – hledaný text v těle zprávy,
+        n (int, volitelné) – počet e-mailů (výchozí 5),
+        after (str, volitelné) – datum ve formátu 'YYYY/MM/DD' (zprávy po tomto datu),
+        before (str, volitelné) – datum ve formátu 'YYYY/MM/DD' (zprávy před tímto datem)
+    Výstup: Textový seznam e-mailů, každý na novém řádku, obsahující předmět zprávy.
+    Pokud nejsou nalezeny žádné zprávy, vrátí 'No messages found.'.
+    """
+    messages = get_messages_by_body(body_text, n=n, after=after, before=before)
+    if not messages:
+        return "No messages found."
+    output = f"Last emails with body containing '{body_text}':\n"
+    for msg in messages:
+        output += f"- {msg['subject']}\n"
+    return output
 
 if __name__ == "__main__":
     mcp.run()

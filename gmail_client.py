@@ -181,6 +181,76 @@ def get_messages_from_sender(sender_email, n=100, after=None, before=None, log_l
     except HttpError as error:
         log(f'Chyba při načítání zpráv od odesílatele: {error}', logging.ERROR)
         return []
+
+def get_messages_by_subject(subject_text, n=100, after=None, before=None, log_level=logging.INFO):
+    """
+    Vrátí posledních n zpráv, jejichž předmět obsahuje zadaný text.
+    Args:
+        subject_text: Text, který má být v předmětu zprávy
+        n: Počet zpráv (default 100)
+        after: Datum ve formátu 'YYYY/MM/DD' (zprávy po tomto datu)
+        before: Datum ve formátu 'YYYY/MM/DD' (zprávy před tímto datem)
+    Returns:
+        Seznam slovníků: {'id': ..., 'subject': ..., 'from': ..., 'snippet': ...}
+    """
+    try:
+        service = get_gmail_service(log_level)
+        query_parts = [f'subject:{subject_text}']
+        if after:
+            query_parts.append(f"after:{after.replace('/', '')}")
+        if before:
+            query_parts.append(f"before:{before.replace('/', '')}")
+        query = " ".join(query_parts)
+        results = service.users().messages().list(userId="me", maxResults=n, q=query).execute()
+        messages = results.get("messages", [])
+        output = []
+        for msg in messages:
+            msg_detail = service.users().messages().get(userId="me", id=msg["id"]).execute()
+            headers = msg_detail.get("payload", {}).get("headers", [])
+            subject = next((h["value"] for h in headers if h["name"] == "Subject"), "(bez předmětu)")
+            sender = next((h["value"] for h in headers if h["name"] == "From"), "(neznámý odesílatel)")
+            snippet = msg_detail.get("snippet", "")[:60]
+            output.append({"id": msg["id"], "subject": subject, "from": sender, "snippet": snippet})
+        log(f"Načteno {len(output)} zpráv s předmětem obsahujícím '{subject_text}'.", log_level)
+        return output
+    except HttpError as error:
+        log(f'Chyba při načítání zpráv podle předmětu: {error}', logging.ERROR)
+        return []
+    
+def get_messages_by_body(body_text, n=100, after=None, before=None, log_level=logging.INFO):
+    """
+    Vrátí posledních n zpráv, jejichž tělo obsahuje zadaný text.
+    Args:
+        body_text: Text, který má být v těle zprávy
+        n: Počet zpráv (default 100)
+        after: Datum ve formátu 'YYYY/MM/DD' (zprávy po tomto datu)
+        before: Datum ve formátu 'YYYY/MM/DD' (zprávy před tímto datem)
+    Returns:
+        Seznam slovníků: {'id': ..., 'subject': ..., 'from': ..., 'snippet': ...}
+    """
+    try:
+        service = get_gmail_service(log_level)
+        query_parts = [body_text]
+        if after:
+            query_parts.append(f"after:{after.replace('/', '')}")
+        if before:
+            query_parts.append(f"before:{before.replace('/', '')}")
+        query = " ".join(query_parts)
+        results = service.users().messages().list(userId="me", maxResults=n, q=query).execute()
+        messages = results.get("messages", [])
+        output = []
+        for msg in messages:
+            msg_detail = service.users().messages().get(userId="me", id=msg["id"]).execute()
+            headers = msg_detail.get("payload", {}).get("headers", [])
+            subject = next((h["value"] for h in headers if h["name"] == "Subject"), "(bez předmětu)")
+            sender = next((h["value"] for h in headers if h["name"] == "From"), "(neznámý odesílatel)")
+            snippet = msg_detail.get("snippet", "")[:60]
+            output.append({"id": msg["id"], "subject": subject, "from": sender, "snippet": snippet})
+        log(f"Načteno {len(output)} zpráv s obsahem '{body_text}'.", log_level)
+        return output
+    except HttpError as error:
+        log(f'Chyba při načítání zpráv podle obsahu: {error}', logging.ERROR)
+        return []
     
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
