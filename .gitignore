@@ -1,7 +1,8 @@
 venv/
-.env/
+.env
 __pycache__/
 *.pyc
 .DS_Store
 .vscode/
 client_secret*.json
+token.json
