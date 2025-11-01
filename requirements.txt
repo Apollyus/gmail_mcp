@@ -63,3 +63,9 @@ typing_extensions==4.15.0
 urllib3==2.5.0
 uvicorn==0.38.0
 websockets==15.0.1
+
+# Google API client dependencies for Gmail usage
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
