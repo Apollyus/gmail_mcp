@@ -22,7 +22,7 @@ GMAIL_CREDENTIALS_NAME = os.getenv('GMAIL_CREDENTIALS_NAME')
 # Ostatní funkce (např. exchange_code) budou stále používat CLIENTSECRETS_LOCATION
 # jak bylo v původním kódu.
 CLIENTSECRETS_LOCATION = GMAIL_CREDENTIALS_NAME
-REDIRECT_URI = 'http://localhost:8080/auth/callback'  # Adjust to your redirect URI.
+REDIRECT_URI = 'http://localhost:8080/'  # Adjust to your redirect URI.
 SCOPES = [
     'https://www.googleapis.com/auth/gmail.readonly',
     'https://www.googleapis.com/auth/gmail.send',
@@ -31,26 +31,41 @@ SCOPES = [
 
 
 def get_gmail_service(log_level=logging.INFO):
-    """Získá autorizovanou Gmail API službu, včetně přihlášení a uložení tokenu."""
+    """Získá autorizovanou Gmail API službu, včetně přihlášení a uložení tokenu.
+    Nejprve zkusí použít environmentální proměnné, pokud jsou dostupné.
+    """
     logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
     creds = None
     script_dir = Path(__file__).parent
     token_path = script_dir / "token.json"
-    
-    # <-- START MODIFIKACE (Návrat ke glob) -->
-    # Hledání souboru s credentials pomocí glob
     client_secrets_files = list(script_dir.glob("client_secret_*.json"))
-    # <-- END MODIFIKACE -->
 
-    if token_path.exists():
+    # --- 1. Pokus o inicializaci z environmentálních proměnných ---
+    env_refresh_token = os.getenv("GOOGLE_REFRESH_TOKEN")
+    env_access_token = os.getenv("GOOGLE_ACCESS_TOKEN")
+    env_client_id = os.getenv("GOOGLE_CLIENT_ID")
+    env_client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+    env_token_uri = os.getenv("GOOGLE_TOKEN_URI", "https://oauth2.googleapis.com/token")
+
+    if env_refresh_token and env_client_id and env_client_secret:
+        logging.info("Používám Gmail OAuth tokeny z environmentálních proměnných.")
+        creds = Credentials(
+            token=env_access_token,
+            refresh_token=env_refresh_token,
+            token_uri=env_token_uri,
+            client_id=env_client_id,
+            client_secret=env_client_secret,
+            scopes=SCOPES
+        )
+    # --- 2. Pokud nejsou env proměnné, pokračuj původní logikou ---
+    elif token_path.exists():
         creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
-    
+
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
             flow = None
-            
             # 1. Pokus načíst ze souboru (pomocí glob)
             if client_secrets_files:
                 client_secrets_file_path = client_secrets_files[0]
@@ -59,7 +74,6 @@ def get_gmail_service(log_level=logging.INFO):
                         "Nalezeno více 'client_secret_*.json' souborů. Používám první: %s",
                         client_secrets_file_path
                     )
-                
                 try:
                     flow = InstalledAppFlow.from_client_secrets_file(
                         str(client_secrets_file_path), SCOPES
@@ -90,7 +104,6 @@ def get_gmail_service(log_level=logging.INFO):
 
                 if client_id and client_secret:
                     logging.info("Používám credentials z proměnných prostředí (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET).")
-                    
                     client_config = {
                         "installed": {
                             "client_id": client_id,
@@ -99,24 +112,20 @@ def get_gmail_service(log_level=logging.INFO):
                             "token_uri": "https://accounts.google.com/o/oauth2/token"
                         }
                     }
-                    
                     flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
-                
                 else:
-                    # 3. Selhání
                     logging.error(
                         "Credentials nenalezeny ani v souboru (vzor 'client_secret_*.json') ani v proměnných prostředí (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET)."
                     )
                     raise ValueError(
                         "Chybí konfigurace OAuth 2.0. Vytvořte 'client_secret_*.json' soubor nebo nastavte proměnné prostředí GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET."
                     )
-            
-            # Tento kód je společný pro obě metody (soubor i env)
-            creds = flow.run_local_server(port=8080)
+            creds = flow.run_local_server(port=8080, open_browser=False)
+        # Uložit token pouze pokud nebyl použit env
+        if not (env_refresh_token and env_client_id and env_client_secret):
+            with open(token_path, "w") as token:
+                token.write(creds.to_json())
 
-        with open(token_path, "w") as token:
-            token.write(creds.to_json())
-    
     service = build("gmail", "v1", credentials=creds)
     return service
 
