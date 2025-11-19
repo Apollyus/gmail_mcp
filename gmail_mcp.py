@@ -1,5 +1,12 @@
 from fastmcp import FastMCP
-from gmail_client import get_last_messages, send_mail, get_message_detail, get_messages_from_sender, get_messages_by_subject, get_messages_by_body
+from gmail_client import (
+    get_last_messages, 
+    send_mail as send_mail_client, 
+    get_message_detail, 
+    get_messages_from_sender, 
+    get_messages_by_subject, 
+    get_messages_by_body
+)
 
 mcp = FastMCP("Gmail MCP")
 
@@ -84,7 +91,7 @@ def send_mail(recipient: str, subject: str, body: str) -> str:
         body (str) – text zprávy.
     Výstup: Potvrzení o odeslání e-mailu s uvedením adresy a předmětu.
     """
-    send_mail(subject, body, recipient)
+    send_mail_client(subject, body, recipient)
     return f"Email sent to {recipient} with subject '{subject}'."
 
 @mcp.tool

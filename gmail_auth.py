@@ -1,15 +1,16 @@
 import logging
 import os
-import json  # <- Přidáno pro parsování JSONu při chybě
+import json
 from oauth2client.client import flow_from_clientsecrets
 from oauth2client.client import FlowExchangeError
-from oauth2client.client import Credentials as OAuth2Credentials # Přejmenováno pro přehlednost
+from oauth2client.client import Credentials as OAuth2Credentials
 from googleapiclient.discovery import build
 from googleapiclient import errors as google_api_errors
+from googleapiclient.http import HttpRequest
 import httplib2
 import dotenv
 from pathlib import Path
-from google.oauth2.credentials import Credentials # Toto je novější knihovna
+from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
@@ -17,10 +18,7 @@ dotenv.load_dotenv()
 
 GMAIL_CREDENTIALS_NAME = os.getenv('GMAIL_CREDENTIALS_NAME')
 
-# Path to credentials.json which should contain a JSON document such as:
-# ... (komentáře k formátu JSON) ...
-# Ostatní funkce (např. exchange_code) budou stále používat CLIENTSECRETS_LOCATION
-# jak bylo v původním kódu.
+
 CLIENTSECRETS_LOCATION = GMAIL_CREDENTIALS_NAME
 REDIRECT_URI = 'http://localhost:8080/'  # Adjust to your redirect URI.
 SCOPES = [
@@ -28,6 +26,9 @@ SCOPES = [
     'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/gmail.compose'
 ]
+
+
+# Nepotřebujeme adapter - použijeme přímo AuthorizedSession
 
 
 def get_gmail_service(log_level=logging.INFO):
@@ -41,10 +42,10 @@ def get_gmail_service(log_level=logging.INFO):
     client_secrets_files = list(script_dir.glob("client_secret_*.json"))
 
     # --- 1. Pokus o inicializaci z environmentálních proměnných ---
-    env_refresh_token = os.getenv("GOOGLE_REFRESH_TOKEN")
-    env_access_token = os.getenv("GOOGLE_ACCESS_TOKEN")
-    env_client_id = os.getenv("GOOGLE_CLIENT_ID")
-    env_client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+    env_refresh_token = os.getenv("GOOGLE_REFRESH_TOKEN_env")
+    env_access_token = os.getenv("GOOGLE_ACCESS_TOKEN_env")
+    env_client_id = os.getenv("GOOGLE_CLIENT_ID_env")
+    env_client_secret = os.getenv("GOOGLE_CLIENT_SECRET_env")
     env_token_uri = os.getenv("GOOGLE_TOKEN_URI", "https://oauth2.googleapis.com/token")
 
     if env_refresh_token and env_client_id and env_client_secret:
@@ -63,6 +64,10 @@ def get_gmail_service(log_level=logging.INFO):
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
+            logging.info("Token expiroval, obnovuji...")
+            # Použít Request s timeoutem
+            import socket
+            socket.setdefaulttimeout(10)
             creds.refresh(Request())
         else:
             flow = None
@@ -126,7 +131,17 @@ def get_gmail_service(log_level=logging.INFO):
             with open(token_path, "w") as token:
                 token.write(creds.to_json())
 
+    # Build service s httplib2 a explicitním timeoutem
+    # googleapiclient očekává httplib2.Http objekt
+    print("INFO: Vytvářím Gmail service")
+    
+    # build() automaticky vytvoří HTTP transport s credentials
+    # Pro vlastní timeout musíme vytvořit custom http
+    import socket
+    socket.setdefaulttimeout(10)
+    
     service = build("gmail", "v1", credentials=creds)
+    
     return service
 
 class GetCredentialsException(Exception):
