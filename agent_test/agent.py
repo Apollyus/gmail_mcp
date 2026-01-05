@@ -1,12 +1,16 @@
 import asyncio
+import os
+import sys
+from pathlib import Path
 
-from anyio import Path
 from langchain_openai import ChatOpenAI
 from mcp_use import MCPAgent, MCPClient
 import dotenv
-import os
 
-dotenv.load_dotenv()
+# Načtení .env z rodiče (gmail_mcp adresář)
+PROJECT_ROOT = Path(__file__).parent.parent.resolve()
+dotenv.load_dotenv(PROJECT_ROOT / ".env")
+
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 # Load Google credentials from environment variables
@@ -16,9 +20,10 @@ GOOGLE_CREDENTIALS_NAME = os.getenv("GOOGLE_CREDENTIALS_NAME", "client_secret.js
 GOOGLE_REFRESH_TOKEN = os.getenv("GOOGLE_REFRESH_TOKEN")
 GOOGLE_ACCESS_TOKEN = os.getenv("GOOGLE_ACCESS_TOKEN")
 
-# Cesta k projektu
-PROJECT_ROOT = Path(__file__).parent.parent
+# Cesty
 GMAIL_MCP_PATH = str(PROJECT_ROOT / "gmail_mcp.py")
+# Použijeme Python z venv, aby měl přístup k fastmcp a dalším závislostem
+VENV_PYTHON = str(PROJECT_ROOT / "venv" / "Scripts" / "python.exe")
 
 async def main():
     # 1. LLM přes OpenRouter - jednotný přístup k různým modelům. Používají OpenAI SDK, takže je to kompatibilní s LangChain
@@ -34,13 +39,14 @@ async def main():
     config = {
         "mcpServers": {
             "gmail": {
-                "command": "python3",
+                "command": VENV_PYTHON,
                 "args": [
                     GMAIL_MCP_PATH
                 ], 
                 "env": {
                     "GOOGLE_CLIENT_ID_env": GOOGLE_CLIENT_ID,
-                    "GOOGLE_CLIENT_SECRET_env": GOOGLE_CLIENT_SECRET
+                    "GOOGLE_CLIENT_SECRET_env": GOOGLE_CLIENT_SECRET,
+                    "GOOGLE_REFRESH_TOKEN_env": GOOGLE_REFRESH_TOKEN
                 }
             }
         }
